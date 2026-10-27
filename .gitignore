@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+*.parcial
+
+# Modelos prontos: são baixados de novo por  python baixar_modelos.py
+modelos/*.task
+modelos/yolo11n.pt
+modelos/vozes/
+
+# Eventos do painel da frota (dados de uso): ficam só na máquina
+data/ouro/eventos.db
+
+# Sessões reais da equipe são dados pessoais: ficam fora do git
+# (apague esta linha só se todos que gravaram concordarem)
+data/bronze/sessoes/real_*.csv

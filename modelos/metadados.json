@@ -1,0 +1,57 @@
+{
+  "atributos": [
+    "ear_media",
+    "ear_min",
+    "ear_desvio",
+    "perclos",
+    "n_piscadas",
+    "dur_media_piscada",
+    "mar_max",
+    "n_bocejos",
+    "yaw_abs_media",
+    "yaw_desvio",
+    "pitch_media",
+    "pitch_desvio",
+    "pct_fora_frontal",
+    "pct_sem_rosto",
+    "pct_mao_rosto",
+    "perclos_30s",
+    "piscadas_longas_30s",
+    "fora_frontal_30s",
+    "bocejos_30s"
+  ],
+  "classes": [
+    "alerta",
+    "sonolento",
+    "distraido"
+  ],
+  "definicao_atributos": {
+    "yaw_frontal": 30.0,
+    "pitch_frontal": -20.0,
+    "bocejo_mar": 0.5,
+    "bocejo_s": 1.0,
+    "piscada_longa_s": 0.5
+  },
+  "janela_s": 3.0,
+  "passo_s": 1.0,
+  "contexto_s": 30.0,
+  "data_treino": "2026-10-26 21:00:55",
+  "versoes": {
+    "tensorflow": "2.21.0",
+    "keras": "3.15.1",
+    "scikit_learn": "1.9.1",
+    "numpy": "2.5.4"
+  },
+  "fonte": "ambos",
+  "janelas_treino": 5928,
+  "metricas_teste": {
+    "mlp": {
+      "acuracia": 0.8288639687957094,
+      "f1_macro": 0.8255716659046707
+    },
+    "arvore": {
+      "acuracia": 0.7947342759629449,
+      "f1_macro": 0.7958679831486425
+    }
+  }
+}

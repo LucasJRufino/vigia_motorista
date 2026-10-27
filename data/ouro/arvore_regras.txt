@@ -1,0 +1,76 @@
+|--- fora_frontal_30s <= 0.08
+|   |--- ear_media <= 0.91
+|   |   |--- perclos_30s <= 0.05
+|   |   |   |--- ear_media <= 0.85
+|   |   |   |   |--- class: Sonolento
+|   |   |   |--- ear_media >  0.85
+|   |   |   |   |--- ear_min <= 0.71
+|   |   |   |   |   |--- class: Alerta
+|   |   |   |   |--- ear_min >  0.71
+|   |   |   |   |   |--- class: Sonolento
+|   |   |--- perclos_30s >  0.05
+|   |   |   |--- pitch_desvio <= 10.08
+|   |   |   |   |--- dur_media_piscada <= 0.20
+|   |   |   |   |   |--- class: Sonolento
+|   |   |   |   |--- dur_media_piscada >  0.20
+|   |   |   |   |   |--- class: Sonolento
+|   |   |   |--- pitch_desvio >  10.08
+|   |   |   |   |--- class: Distraído
+|   |--- ear_media >  0.91
+|   |   |--- perclos_30s <= 0.08
+|   |   |   |--- pitch_desvio <= 3.57
+|   |   |   |   |--- yaw_abs_media <= 12.68
+|   |   |   |   |   |--- class: Alerta
+|   |   |   |   |--- yaw_abs_media >  12.68
+|   |   |   |   |   |--- class: Distraído
+|   |   |   |--- pitch_desvio >  3.57
+|   |   |   |   |--- class: Distraído
+|   |   |--- perclos_30s >  0.08
+|   |   |   |--- pitch_media <= -1.77
+|   |   |   |   |--- fora_frontal_30s <= 0.03
+|   |   |   |   |   |--- class: Sonolento
+|   |   |   |   |--- fora_frontal_30s >  0.03
+|   |   |   |   |   |--- class: Alerta
+|   |   |   |--- pitch_media >  -1.77
+|   |   |   |   |--- yaw_abs_media <= 9.62
+|   |   |   |   |   |--- class: Alerta
+|   |   |   |   |--- yaw_abs_media >  9.62
+|   |   |   |   |   |--- class: Distraído
+|--- fora_frontal_30s >  0.08
+|   |--- pct_fora_frontal <= 0.01
+|   |   |--- ear_media <= 0.86
+|   |   |   |--- ear_min <= 0.19
+|   |   |   |   |--- dur_media_piscada <= 0.33
+|   |   |   |   |   |--- class: Sonolento
+|   |   |   |   |--- dur_media_piscada >  0.33
+|   |   |   |   |   |--- class: Sonolento
+|   |   |   |--- ear_min >  0.19
+|   |   |   |   |--- class: Sonolento
+|   |   |--- ear_media >  0.86
+|   |   |   |--- yaw_abs_media <= 7.39
+|   |   |   |   |--- ear_media <= 0.90
+|   |   |   |   |   |--- class: Sonolento
+|   |   |   |   |--- ear_media >  0.90
+|   |   |   |   |   |--- class: Distraído
+|   |   |   |--- yaw_abs_media >  7.39
+|   |   |   |   |--- perclos <= 0.05
+|   |   |   |   |   |--- class: Distraído
+|   |   |   |   |--- perclos >  0.05
+|   |   |   |   |   |--- class: Distraído
+|   |--- pct_fora_frontal >  0.01
+|   |   |--- ear_desvio <= 0.24
+|   |   |   |--- pct_fora_frontal <= 0.33
+|   |   |   |   |--- ear_media <= 0.85
+|   |   |   |   |   |--- class: Sonolento
+|   |   |   |   |--- ear_media >  0.85
+|   |   |   |   |   |--- class: Distraído
+|   |   |   |--- pct_fora_frontal >  0.33
+|   |   |   |   |--- ear_desvio <= 0.21
+|   |   |   |   |   |--- class: Distraído
+|   |   |   |   |--- ear_desvio >  0.21
+|   |   |   |   |   |--- class: Distraído
+|   |   |--- ear_desvio >  0.24
+|   |   |   |--- dur_media_piscada <= 0.25
+|   |   |   |   |--- class: Distraído
+|   |   |   |--- dur_media_piscada >  0.25
+|   |   |   |   |--- class: Sonolento

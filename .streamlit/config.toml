@@ -1,0 +1,44 @@
+[server]
+headless = true
+enableStaticServing = true      # serve as fontes de static/ (funciona sem internet)
+runOnSave = false
+
+[browser]
+gatherUsageStats = false        # nada é enviado para a internet
+
+[client]
+toolbarMode = "minimal"
+
+[theme]
+base = "light"
+primaryColor = "#3E63DD"
+backgroundColor = "#F4F5F7"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#151821"
+borderColor = "#E2E5EA"
+showWidgetBorder = true
+baseRadius = "10px"
+buttonRadius = "8px"
+font = "Inter"
+headingFont = "Space Grotesk"
+codeFont = "JetBrains Mono"
+greenColor = "#1FA971"
+orangeColor = "#F08C00"
+redColor = "#E5484D"
+violetColor = "#8E4EC6"
+chartCategoricalColors = ["#E5484D", "#F08C00", "#3E63DD", "#8E4EC6", "#8A919E", "#1FA971"]
+
+[[theme.fontFaces]]
+family = "Inter"
+url = "app/static/fontes/Inter.woff2"
+weight = "400 700"
+
+[[theme.fontFaces]]
+family = "Space Grotesk"
+url = "app/static/fontes/SpaceGrotesk.woff2"
+weight = "500 700"
+
+[[theme.fontFaces]]
+family = "JetBrains Mono"
+url = "app/static/fontes/JetBrainsMono.woff2"
+weight = "400 600"

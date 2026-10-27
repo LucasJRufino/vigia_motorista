@@ -1,0 +1,28 @@
+# Vigia - dependências (testadas para Python 3.12 no Windows 64 bits, só CPU)
+# Instale SEMPRE com o (.venv) ativo:  python -m pip install -r requirements.txt
+# Download total ~1 GB (TensorFlow e PyTorch são os maiores). Demora alguns minutos.
+
+# Interface
+streamlit==1.66.0
+
+# Visão computacional (modelos prontos)
+mediapipe==1.1.1
+opencv-python==5.0.0.93
+opencv-contrib-python==5.0.0.93
+ultralytics==8.4.177
+torch==2.14.1
+torchvision==0.29.1
+
+# Modelo treinado pela equipe (KDD)
+tensorflow==2.21.0
+keras==3.15.1
+scikit-learn==1.9.1
+joblib==1.6.0
+numpy==2.5.4
+pandas==3.0.6
+matplotlib==3.11.2
+
+# Voz dos alertas (a mesma da aula de Deep Voice)
+piper-tts==1.8.0
+onnxruntime==1.31.0
+sounddevice==0.5.6

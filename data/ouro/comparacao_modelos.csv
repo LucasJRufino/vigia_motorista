@@ -1,0 +1,3 @@
+modelo,acuracia,f1_macro,precisao_alerta,recall_alerta,precisao_sonolento,recall_sonolento,precisao_distraido,recall_distraido
+Árvore de Decisão,0.7947,0.7959,0.7568,0.8253,0.8551,0.7195,0.7926,0.8419
+MLP Keras,0.8289,0.8256,0.753,0.9442,0.9577,0.7651,0.8424,0.7407

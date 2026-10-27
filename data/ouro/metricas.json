@@ -1,0 +1,206 @@
+{
+  "data_execucao": "2026-10-26 21:00:55",
+  "fonte": "ambos",
+  "sessoes": 24,
+  "quadros_bronze": 124597,
+  "limpeza": {
+    "quadros_lidos": 124597,
+    "quadros_removidos": 251,
+    "quadros_sem_rosto": 5338,
+    "janelas": 7979,
+    "janelas_por_estado": {
+      "alerta": 3161,
+      "sonolento": 2703,
+      "distraido": 2115
+    },
+    "pessoas": 12,
+    "sessoes": 24
+  },
+  "janelas": 7979,
+  "janelas_treino": 5928,
+  "janelas_teste": 2051,
+  "pessoas_treino": [
+    "sint_p02",
+    "sint_p03",
+    "sint_p04",
+    "sint_p05",
+    "sint_p06",
+    "sint_p07",
+    "sint_p08",
+    "sint_p09",
+    "sint_p12"
+  ],
+  "pessoas_teste": [
+    "sint_p01",
+    "sint_p10",
+    "sint_p11"
+  ],
+  "classes": [
+    "alerta",
+    "sonolento",
+    "distraido"
+  ],
+  "atributos": [
+    "ear_media",
+    "ear_min",
+    "ear_desvio",
+    "perclos",
+    "n_piscadas",
+    "dur_media_piscada",
+    "mar_max",
+    "n_bocejos",
+    "yaw_abs_media",
+    "yaw_desvio",
+    "pitch_media",
+    "pitch_desvio",
+    "pct_fora_frontal",
+    "pct_sem_rosto",
+    "pct_mao_rosto",
+    "perclos_30s",
+    "piscadas_longas_30s",
+    "fora_frontal_30s",
+    "bocejos_30s"
+  ],
+  "janela_s": 3.0,
+  "passo_s": 1.0,
+  "contexto_s": 30.0,
+  "modelos": {
+    "arvore": {
+      "acuracia": 0.7947342759629449,
+      "f1_macro": 0.7958679831486425,
+      "por_classe": {
+        "alerta": {
+          "precisao": 0.7568181818181818,
+          "recall": 0.8252788104089219,
+          "f1": 0.7895672791938352,
+          "suporte": 807
+        },
+        "sonolento": {
+          "precisao": 0.8551483420593369,
+          "recall": 0.7195301027900147,
+          "f1": 0.7814992025518341,
+          "suporte": 681
+        },
+        "distraido": {
+          "precisao": 0.7926421404682275,
+          "recall": 0.8419182948490231,
+          "f1": 0.8165374677002584,
+          "suporte": 563
+        }
+      },
+      "matriz_confusao": [
+        [
+          666,
+          39,
+          102
+        ],
+        [
+          169,
+          490,
+          22
+        ],
+        [
+          45,
+          44,
+          474
+        ]
+      ]
+    },
+    "mlp": {
+      "acuracia": 0.8288639687957094,
+      "f1_macro": 0.8255716659046707,
+      "por_classe": {
+        "alerta": {
+          "precisao": 0.7529644268774703,
+          "recall": 0.9442379182156134,
+          "f1": 0.8378229796591534,
+          "suporte": 807
+        },
+        "sonolento": {
+          "precisao": 0.9577205882352942,
+          "recall": 0.7650513950073421,
+          "f1": 0.8506122448979592,
+          "suporte": 681
+        },
+        "distraido": {
+          "precisao": 0.8424242424242424,
+          "recall": 0.7406749555950266,
+          "f1": 0.7882797731568998,
+          "suporte": 563
+        }
+      },
+      "matriz_confusao": [
+        [
+          762,
+          5,
+          40
+        ],
+        [
+          122,
+          521,
+          38
+        ],
+        [
+          128,
+          18,
+          417
+        ]
+      ],
+      "epocas": 21,
+      "melhor_epoca": 6
+    }
+  },
+  "validacao_cruzada": {
+    "dobras": 4,
+    "arvore": {
+      "acuracia": {
+        "media": 0.8204075008609834,
+        "desvio": 0.018773994342908846
+      },
+      "f1_macro": {
+        "media": 0.8196954227795332,
+        "desvio": 0.018914464924599125
+      },
+      "recall_sonolento": {
+        "media": 0.8754489926403407,
+        "desvio": 0.03931578355067878
+      }
+    },
+    "mlp": {
+      "acuracia": {
+        "media": 0.86139612614096,
+        "desvio": 0.011044749610662475
+      },
+      "f1_macro": {
+        "media": 0.8584240883927001,
+        "desvio": 0.013092402864606598
+      },
+      "recall_sonolento": {
+        "media": 0.9188800501793561,
+        "desvio": 0.058904569591613484
+      }
+    }
+  },
+  "importancia_arvore": {
+    "ear_media": 0.3874,
+    "fora_frontal_30s": 0.359,
+    "perclos_30s": 0.0886,
+    "pct_fora_frontal": 0.0582,
+    "yaw_abs_media": 0.0344,
+    "pitch_desvio": 0.0268,
+    "pitch_media": 0.0172,
+    "dur_media_piscada": 0.0153,
+    "ear_min": 0.0083,
+    "ear_desvio": 0.0037,
+    "perclos": 0.001,
+    "n_piscadas": 0.0,
+    "mar_max": 0.0,
+    "n_bocejos": 0.0,
+    "yaw_desvio": 0.0,
+    "pct_sem_rosto": 0.0,
+    "pct_mao_rosto": 0.0,
+    "piscadas_longas_30s": 0.0,
+    "bocejos_30s": 0.0
+  },
+  "metrica_principal": "recall da classe sonolento (falso negativo = risco de acidente)"
+}

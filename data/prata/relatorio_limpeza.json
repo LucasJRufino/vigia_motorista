@@ -1,0 +1,13 @@
+{
+  "quadros_lidos": 124597,
+  "quadros_removidos": 251,
+  "quadros_sem_rosto": 5338,
+  "janelas": 7979,
+  "janelas_por_estado": {
+    "alerta": 3161,
+    "sonolento": 2703,
+    "distraido": 2115
+  },
+  "pessoas": 12,
+  "sessoes": 24
+}
