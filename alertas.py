@@ -14,8 +14,11 @@ Como funciona:
         nível 1 -> voz
         nível 2 -> bipe alto + voz
         nível 3 -> alarme contínuo (até a situação voltar ao normal)
-  - COOLDOWN: o mesmo tipo de alerta não se repete antes de 10 s
-    (o nível 2 e o 3 furam o cooldown: segurança vem antes do incômodo).
+  - COOLDOWN: cada vez que o problema volta, o aviso volta (pegou o celular de novo =
+    "Largue o celular." de novo). Só um novo evento a menos de 1,5 s do fim do anterior
+    fica calado, porque aí é a detecção oscilando, não uma nova ação. A sonolência (modelo)
+    é a exceção: o estado muda devagar, então ela espera 60 s para falar de novo.
+    (O nível 2 e o 3 furam o cooldown: segurança vem antes do incômodo.)
 
 Para testar pelo terminal (toca todas as frases):
     python alertas.py
@@ -45,8 +48,14 @@ FRASES = {
     "distracao": "Olhos na estrada.",
     "celular": "Largue o celular.",
     "ausencia": "Motorista ausente.",
-    "calibrando": "Calibrando. Olhe para a frente.",
-    "iniciado": "Monitoramento iniciado.",
+    "maos_fora": "Mãos no volante.",
+    # calibração guiada (visao.Calibrador): posição -> olhos abertos -> olhos fechados -> bipe
+    "alinhar": "Encaixe-se no contorno da tela: rosto no oval e as duas mãos no volante.",
+    "sem_alinhar": "Não vi as duas mãos no volante. Sigo sem esse alerta.",
+    "calibrando": "Posição certa. Agora olhe para a tela como se fosse a estrada.",
+    "calib_fechar": "Agora feche os olhos até ouvir o bipe.",
+    "calib_repetir": "Não vi os olhos fecharem. Feche os olhos de novo, até o bipe.",
+    "iniciado": "Pode abrir. Calibração pronta, monitoramento iniciado.",
 }
 
 # Segundos desde o PRIMEIRO AVISO para subir ao nível 2 e ao nível 3
@@ -57,14 +66,16 @@ ESCALONAMENTO = {
     "celular": (6.0, 12.0),
     "distracao": (5.0, 10.0),
     "ausencia": (10.0, None),
+    "maos_fora": (6.0, 12.0),
     "sonolencia": (None, None),
 }
 COOLDOWN_S = {"sonolencia": 60.0}     # os demais tipos usam COOLDOWN_PADRAO_S
-COOLDOWN_PADRAO_S = 10.0
+COOLDOWN_PADRAO_S = 1.5               # só filtra a oscilação da detecção (era 10 s: calava o aviso
+                                      # quando a pessoa pegava o celular de novo logo depois)
 REPETIR_ALARME_S = 4.0                # no nível 3, a frase se repete a cada 4 s
 
 # Ordem de importância: se dois problemas acontecem juntos, fala o primeiro
-PRIORIDADE = ["microssono", "celular", "distracao", "ausencia", "sonolencia"]
+PRIORIDADE = ["microssono", "celular", "maos_fora", "distracao", "ausencia", "sonolencia"]
 
 
 # ---------------------------------------------------------------------------
@@ -192,6 +203,11 @@ class CentralAlertas:
             except queue.Empty:
                 pass
 
+    def duracao(self, tipo: str) -> float:
+        """Segundos que a frase leva para ser falada (0 sem voz ou com o som desligado)."""
+        som = self.sons.get(tipo)
+        return 0.0 if som is None or not self.som else len(som) / self.taxa
+
     def falar(self, tipo: str, volume: float = 1.0, bipe: np.ndarray | None = None) -> None:
         """Coloca uma frase pré-sintetizada (com bipe opcional antes) na fila."""
         voz = self.sons.get(tipo)
@@ -276,7 +292,7 @@ def demonstracao() -> None:
         print(central.erro_voz)
     print(f"{len(central.sons)} frases prontas em {time.perf_counter() - inicio:.1f} s "
           f"(taxa {central.taxa} Hz)")
-    for tipo in ("microssono", "celular", "distracao", "ausencia", "sonolencia"):
+    for tipo in ("microssono", "celular", "maos_fora", "distracao", "ausencia", "sonolencia"):
         print(f"  tocando: {tipo:<11} \"{FRASES[tipo]}\"")
         central.falar(tipo, 0.85, central.bipe_forte if tipo == "microssono" else None)
         time.sleep(len(central.sons.get(tipo, central.bipe)) / central.taxa + 0.8)

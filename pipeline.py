@@ -186,7 +186,11 @@ def preparar_quadros(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     df["yaw_rel"] = df["yaw"] - df["yaw_base"]
     df["pitch_rel"] = df["pitch"] - df["pitch_base"]
     blink = df[["blink_esq", "blink_dir"]].mean(axis=1)
-    df["fechado"] = visao.olho_fechado(df["ear_rel"], blink) & (df["rosto_presente"] == 1)
+    # limiar de olho fechado: o da calibração guiada da pessoa (olho aberto x fechado),
+    # quando a sessão tem; senão o padrão (base sintética e sessões antigas)
+    fator = (df["fator_olho"].fillna(visao.CONFIG_VISAO["fator_olho_fechado"]).to_numpy()
+             if "fator_olho" in df else None)
+    df["fechado"] = visao.olho_fechado(df["ear_rel"], blink, fator) & (df["rosto_presente"] == 1)
 
     relatorio = {"quadros_lidos": int(total), "quadros_removidos": int(invalido.sum()),
                  "quadros_sem_rosto": int((df["rosto_presente"] == 0).sum())}

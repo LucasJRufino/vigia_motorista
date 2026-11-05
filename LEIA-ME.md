@@ -2,7 +2,8 @@
 
 Uma webcam comum, no próprio computador, observa o motorista e detecta em tempo real **sono**
 (olhos fechando, piscadas longas, bocejos, cabeça caindo), **distração** (olhar para o lado ou
-para baixo), **uso de celular** e **ausência**. O Vigia avisa **em voz alta, em português**,
+para baixo), **uso de celular**, **mãos fora do volante** e **ausência**. O Vigia avisa
+**em voz alta, em português**,
 aumenta o alerta se o problema continuar e registra **eventos** num painel para o gestor da frota.
 
 Roda **offline** e **nunca grava vídeo**: só números (abertura dos olhos, ângulo da cabeça...)
@@ -57,16 +58,22 @@ Para testar partes isoladas pelo terminal: `python visao.py` (números da webcam
 | Passo | Ação | Resultado esperado |
 |---|---|---|
 | 1 | Abrir o app e ler o aviso de privacidade | Clicar em **Entendi e concordo** libera o botão Iniciar |
-| 2 | Sentar de frente para a câmera (50–80 cm) e clicar em **Iniciar** | Faixa amarela "Calibrando": olhe para a frente por 5 s |
-| 3 | Dirigir normalmente | Faixa **verde "Atento"**; o cartão da MLP mostra "Alerta" |
+| 2 | Clicar em **Iniciar** e seguir a voz | **Calibração guiada** em três passos. **Posição:** um contorno piscante aparece sobre o vídeo (oval do rosto, ombros, volante e dois círculos para as mãos); encaixe o rosto no oval e segure um volante, real ou imaginário, com as duas mãos na altura do peito. Cada parte fica verde quando encaixa, e a faixa diz o que falta ("Afaste-se", "Centralize o rosto"...). **Olhos abertos:** olhe para a tela por 5 s, com as mãos no volante; é aqui que o Vigia marca onde o volante fica. **Olhos fechados:** feche os olhos até ouvir o bipe |
+| 3 | Dirigir normalmente | Faixa **verde "Atento"**; o cartão da MLP mostra "Alerta"; o volante aparece como uma elipse verde no vídeo |
 | 4 | Fechar os olhos por 2 s | Faixa vermelha **MICROSSONO** + voz "Atenção! Sinais de sono. Pare em local seguro." |
 | 5 | Pegar o celular perto do rosto | **USO DE CELULAR** + "Largue o celular." |
-| 6 | Olhar para o lado por 3 s | **DISTRAÇÃO** + "Olhos na estrada." |
-| 7 | Levantar e sair do quadro | Faixa amarela **AUSÊNCIA** + "Motorista ausente." (após 3 s) |
-| 8 | Abrir a aba **Painel da frota** (clique em Atualizar painel) | Os eventos na linha do tempo, com duração e o que o modelo dizia |
+| 6 | Tirar as duas mãos do volante | Na hora: **MÃOS FORA DO VOLANTE** + "Mãos no volante." (a elipse fica laranja) |
+| 7 | Olhar para o lado por 3 s | **DISTRAÇÃO** + "Olhos na estrada." |
+| 8 | Levantar e sair do quadro | Faixa amarela **AUSÊNCIA** + "Motorista ausente." (após 3 s) |
+| 9 | Abrir a aba **Painel da frota** (clique em Atualizar painel) | Os eventos na linha do tempo, com duração e o que o modelo dizia |
+
+Se a câmera não enxergar as mãos (só o rosto), depois de 25 s o Vigia segue sem o volante: avisa
+"Sigo sem esse alerta" e as outras detecções funcionam normalmente. O botão **Recalibrar** refaz
+os três passos sem parar o monitor.
 
 Se o problema continuar, o alerta **sobe de nível**: voz → bipe alto + voz → alarme contínuo até
-a situação voltar ao normal. O mesmo alerta não se repete antes de 10 s.
+a situação voltar ao normal. Cada vez que o problema volta, o aviso volta (pegou o celular de
+novo = "Largue o celular." de novo); só a sonolência do modelo espera 60 s para repetir.
 
 As abas: **Monitor ao vivo** (vídeo, faixa de status, indicadores e estado da MLP),
 **Painel da frota** (eventos com filtros, gráficos e exportação para Excel), **Modelo**
@@ -94,7 +101,8 @@ inseridos de propósito para a camada Prata ter o que limpar.
 python coletar_dados.py
 ```
 
-Digite um **código** (p01, p02...; nunca o nome). A janela calibra 5 s; depois **você** diz o que
+Digite um **código** (p01, p02...; nunca o nome). A janela faz a mesma calibração do app (olhos
+abertos 5 s, depois olhos fechados até o bipe); depois **você** diz o que
 está simulando pelas teclas **1** alerta, **2** sonolento, **3** distraído, **0** pausa e **q**
 salvar e sair. Só números são gravados.
 
@@ -139,7 +147,9 @@ vigia_motorista/
 
 Os limiares das regras ficam no topo do `monitor.py`, no dicionário `LIMIARES` (ex.: olhos
 fechados por 1,5 s = microssono; cabeça virada mais de 30° por 2 s = distração). O escalonamento
-e as frases ficam no topo do `alertas.py`. Mudar esses valores **não** exige treinar de novo.
+e as frases ficam no topo do `alertas.py`. A posição pedida pelo contorno da calibração (onde
+ficam o oval do rosto, o volante e os círculos das mãos) fica em `ALVO_POSICAO`, no `visao.py`.
+Mudar esses valores **não** exige treinar de novo.
 Já a definição dos atributos (`DEF_ATRIBUTOS` no `pipeline.py`) faz parte do modelo: se mudar,
 rode `python pipeline.py` outra vez.
 
@@ -150,6 +160,8 @@ rode `python pipeline.py` outra vez.
 - Não substitui o descanso nem a responsabilidade do motorista. Pode errar, principalmente com
   pouca luz (webcam comum não tem infravermelho), óculos escuros ou câmera muito de lado.
 - O modelo foi treinado com dados sintéticos e/ou poucas pessoas: sono simulado não é sono real.
+- "Mãos fora do volante" é uma **regra**, não entra no modelo. Só funciona se a câmera enxergar
+  as mãos, e o volante vale para a posição da calibração: se a câmera ou o banco mudarem, recalibre.
 - O YOLO (Ultralytics) tem licença AGPL-3.0: ok para uso acadêmico.
 
 ## 9. Problemas comuns
@@ -161,5 +173,6 @@ rode `python pipeline.py` outra vez.
 | "Não foi possível abrir a câmera" | Feche Teams/Zoom/navegador que usem a câmera; troque o número da câmera no app |
 | Não sai som | Confira o volume e o botão "Som dos alertas"; o `testar_ambiente.py` mostra a saída de som |
 | O app não detecta o rosto | Mais luz no rosto, câmera na altura dos olhos, 50–80 cm de distância |
-| Muitos falsos alarmes de olho fechado | Pare e inicie de novo para recalibrar, olhando para a frente |
+| Muitos falsos alarmes de olho fechado | Clique em **Recalibrar** e faça os dois passos olhando para a tela (não para o celular) |
+| A calibração diz "olho fechado não medido" | A câmera não viu diferença entre olho aberto e fechado: mais luz no rosto e olhe para a tela, não para baixo; depois **Recalibrar** |
 | Sem webcam, só para ver a interface | `python -m streamlit run app.py -- --fonte caminho\do\video.mp4` usa um vídeo no lugar da câmera |

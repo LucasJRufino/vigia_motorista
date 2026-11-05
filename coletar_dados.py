@@ -10,7 +10,8 @@ Uso (com o .venv ativo):
 
 Como funciona:
   1. Pede o código da pessoa (ex.: p01). Use código, nunca o nome.
-  2. Abre a webcam e calibra por 5 s: olhe para a frente.
+  2. Abre a webcam e faz a calibração guiada: olhe para a frente por 5 s; quando
+     a tela pedir, feche os olhos até o bipe (~3 s).
   3. Você indica, pelo teclado, o que está simulando AGORA:
         1 = alerta     (dirigindo normal, olhando a estrada)
         2 = sonolento  (piscadas lentas, olhos pesados, bocejos, cabeça caindo)
@@ -61,9 +62,9 @@ def desenhar_painel(tela, rotulo: str, segundos: dict, calibrando: float | None,
     import cv2
     h, w = tela.shape[:2]
     cv2.rectangle(tela, (0, 0), (w, 64), (24, 22, 20), -1)
-    if calibrando is not None:
-        cv2.putText(tela, f"CALIBRANDO {calibrando:.0%} - olhe para a frente", (12, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 190, 240), 2, cv2.LINE_AA)
+    if calibrando is not None:   # (texto do OpenCV não aceita acento)
+        cv2.putText(tela, calibrando, (12, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 190, 240), 2, cv2.LINE_AA)
     else:
         cv2.circle(tela, (24, 32), 10, CORES[rotulo], -1, cv2.LINE_AA)
         cv2.putText(tela, NOMES[rotulo], (44, 41), cv2.FONT_HERSHEY_SIMPLEX, 0.8, CORES[rotulo], 2,
@@ -92,13 +93,14 @@ def coletar(camera: str = "0") -> None:
         extrator.fechar()
         return
 
-    calib = visao.Calibrador()
+    calib = visao.Calibrador(posicionar=False)   # a coleta não usa o volante
     linhas: list[dict] = []
     segundos: dict[str, float] = {}
     rotulo = "pausa"
     inicio = time.perf_counter()
     ultimo_t, ultimo_salvo, fps = None, 0.0, 0.0
-    print("Janela aberta. Calibrando por 5 s; depois use as teclas 1, 2, 3, 0 e q.")
+    print("Janela aberta. Calibração: olhe para a frente; quando a tela pedir, feche os olhos "
+          "até o bipe.")
     try:
         while True:
             ok, quadro = cap.read()
@@ -108,6 +110,11 @@ def coletar(camera: str = "0") -> None:
             t = time.perf_counter() - inicio
             ind = extrator.processar(quadro, t)
             resultado = calib.adicionar(ind)
+            if "pronto" in calib.eventos:
+                visao.bipe()   # sinal para abrir os olhos
+                print(f"Calibração pronta (limiar de olho fechado = {resultado['fator_olho']:.0%} "
+                      "do olho aberto). Use as teclas 1, 2, 3, 0 e q.")
+            calib.eventos.clear()
             if ultimo_t is not None:
                 dt = t - ultimo_t
                 fps = 0.9 * fps + 0.1 / max(dt, 1e-3) if fps else 1 / max(dt, 1e-3)
@@ -118,7 +125,8 @@ def coletar(camera: str = "0") -> None:
             if resultado:   # só grava depois da calibração (as bases entram em cada linha)
                 linhas.append({**visao.linha_para_salvar(ind),
                                "ear_base": resultado["ear_base"], "yaw_base": resultado["yaw_base"],
-                               "pitch_base": resultado["pitch_base"], "rotulo": rotulo,
+                               "pitch_base": resultado["pitch_base"],
+                               "fator_olho": resultado["fator_olho"], "rotulo": rotulo,
                                "id_pessoa": codigo, "id_sessao": id_sessao, "fonte": "real"})
             if t - ultimo_salvo > 30:
                 salvar(linhas, caminho)
@@ -126,9 +134,16 @@ def coletar(camera: str = "0") -> None:
 
             base = resultado["ear_base"] if resultado else visao.CONFIG_VISAO["ear_base_padrao"]
             fechado = bool(ind["rosto_presente"] and visao.olho_fechado(
-                ind["ear_medio"] / base, np.nanmean([ind["blink_esq"], ind["blink_dir"]])))
+                ind["ear_medio"] / base, np.nanmean([ind["blink_esq"], ind["blink_dir"]]),
+                resultado["fator_olho"] if resultado else None))
             tela = visao.desenhar(quadro, ind, fechado)
-            desenhar_painel(tela, rotulo, segundos, None if resultado else calib.progresso, fps)
+            if resultado:
+                aviso = None
+            elif calib.fase == "olhar":
+                aviso = f"CALIBRACAO 1/2 {calib.progresso:.0%} - olhe para a frente"
+            else:
+                aviso = f"CALIBRACAO 2/2 {calib.progresso:.0%} - FECHE OS OLHOS ate o bipe"
+            desenhar_painel(tela, rotulo, segundos, aviso, fps)
             cv2.imshow("Vigia - coleta de dados (nenhuma imagem e gravada)", tela)
 
             tecla = cv2.waitKey(1) & 0xFF

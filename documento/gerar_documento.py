@@ -226,9 +226,12 @@ remover(P(27))
 # --- 8. Como usar -------------------------------------------------------------------
 tabela(d.tables[3], [
     ("1", "Abrir o app e clicar em “Entendi e concordo” no aviso de privacidade", "O botão Iniciar é liberado"),
-    ("2", "Sentar a 50–80 cm da câmera e clicar em Iniciar", "Faixa amarela “Calibrando” por 5 s; depois verde “Atento”"),
+    ("2", "Clicar em Iniciar e seguir a voz da calibração",
+     "Encaixar rosto e mãos no contorno piscante (marca o volante); olhos abertos 5 s; "
+     "olhos fechados até o bipe. Depois, verde “Atento”"),
     ("3", "Fechar os olhos por 2 s", "Faixa vermelha MICROSSONO + voz “Atenção! Sinais de sono. Pare em local seguro.”"),
-    ("4", "Pegar o celular perto do rosto", "USO DE CELULAR + “Largue o celular.”"),
+    ("4", "Pegar o celular perto do rosto, ou tirar as mãos do volante",
+     "USO DE CELULAR + “Largue o celular.” / MÃOS FORA DO VOLANTE + “Mãos no volante.”"),
     ("5", "Olhar para o lado por 3 s", "DISTRAÇÃO + “Olhos na estrada.”"),
     ("6", "Levantar e sair do quadro", "AUSÊNCIA (após 3 s) + “Motorista ausente.”"),
     ("7", "Abrir a aba Painel da frota", "Os eventos na linha do tempo, com duração; exportar para Excel"),

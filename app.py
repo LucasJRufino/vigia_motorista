@@ -33,9 +33,10 @@ st.set_page_config(page_title="Vigia · Monitor do Motorista", page_icon="👁�
 # Identidade visual (cores iguais em todo o sistema)
 # ---------------------------------------------------------------------------
 CORES_EVENTO = {"microssono": "#E5484D", "sonolencia": "#8E4EC6", "distracao": "#F08C00",
-                "celular": "#3E63DD", "ausencia": "#8A919E", "bocejo": "#B48A00"}
+                "celular": "#3E63DD", "maos_fora": "#D6409F", "ausencia": "#8A919E",
+                "bocejo": "#B48A00"}
 NOMES_EVENTO = {k: v["nome"] for k, v in mon.TIPOS_EVENTO.items()}
-ORDEM_RISCO = ["microssono", "celular", "distracao", "sonolencia", "ausencia", "bocejo"]
+ORDEM_RISCO = ["microssono", "celular", "maos_fora", "distracao", "sonolencia", "ausencia", "bocejo"]
 
 LOGO = """<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 42 42">
 <rect width="42" height="42" rx="12" fill="#151821"/>
@@ -119,6 +120,16 @@ border-top:1px solid var(--cab-linha);padding-top:10px;margin-top:4px}
 .vg-numeros span{display:block;color:var(--muted);font-size:.76rem}
 .vg-numeros b{font-family:'Space Grotesk';font-size:1.75rem;font-weight:700}
 .vg-numeros .destaque b{color:var(--roxo)}
+.vg-passo{display:grid;grid-template-columns:30px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.vg-passo:last-of-type{border-bottom:0}
+.vg-passo .num{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-family:'Space Grotesk';
+font-weight:700;font-size:.85rem;background:#EEF0F3;color:var(--muted)}
+.vg-passo.agora .num{background:var(--warn);color:#2B1F00}.vg-passo.feito .num{background:var(--ok);color:#fff}
+.vg-passo b{font-size:.95rem}.vg-passo span{display:block;color:var(--muted);font-size:.84rem;margin-top:2px}
+.vg-passo.agora span{color:var(--ink,#151821)}
+.vg-passo .trilho{height:6px;background:#EEF0F3;border-radius:99px;overflow:hidden;margin-top:8px}
+.vg-passo .trilho b{display:block;height:100%;border-radius:99px;background:var(--warn);transition:width .2s}
+.vg-passo.feito .trilho b{background:var(--ok)}
 .vg-cv{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:.82rem;color:var(--muted)}
 .vg-aviso{background:#fff;border:1px solid var(--line);border-left:4px solid var(--azul);border-radius:12px;
 padding:12px 16px;font-size:.9rem;color:#2A2F3A;margin:6px 0 12px}
@@ -237,10 +248,12 @@ def html_faixa(e: dict) -> str:
         cor, rotulo, sub = "amarelo", "Preparando", e["mensagem"]
     elif status == "parado":
         cor, rotulo = "cinza", "Monitor desligado"
-        sub = "Clique em Iniciar. Sente-se de frente para a câmera, a uns 50-80 cm."
+        sub = ("Clique em Iniciar. Antes de vigiar, o Vigia calibra em três passos: posição "
+               "(rosto e mãos no volante), olhos abertos e olhos fechados.")
     elif status == "calibrando":
-        cor, rotulo = "amarelo", f"Calibrando · {pct(e['progresso_calibracao'])}"
-        sub = "Olhe para a frente, como se estivesse dirigindo, por 5 segundos."
+        passo, passos = e.get("passo_calibracao") or (1, 2)
+        cor, rotulo = "amarelo", f"Calibração · passo {passo} de {passos}"
+        sub = f"{e['mensagem']} ({pct(e['progresso_calibracao'])})"
     else:
         riscos = sorted((a for a in e["ativos"] if a["prioridade"] != "Info"),
                         key=lambda a: ORDEM_RISCO.index(a["tipo"]))
@@ -252,6 +265,9 @@ def html_faixa(e: dict) -> str:
             niveis = e["nivel"]
             sub = f"há {br(topo['desde_s'])} s" + (f" · também: {', '.join(a['nome'] for a in riscos[1:])}"
                                                     if len(riscos) > 1 else "")
+        elif e.get("calibrado_ha_s") is not None and e["calibrado_ha_s"] < 5 and e["calibracao"]:
+            cor, rotulo = "verde", "Calibração pronta"
+            sub = resumo_calibracao(e["calibracao"]) + " Monitorando."
         elif p and p["estado"] != "alerta" and p["confianca"] >= 0.6:
             cor, rotulo = "amarelo", "Atenção"
             sub = (f"O modelo vê sinais de {'sono' if p['estado'] == 'sonolento' else 'distração'} "
@@ -264,6 +280,52 @@ def html_faixa(e: dict) -> str:
                f'<div class="sub">nível {niveis} de 3</div></div>') if niveis else ""
     return (f'<div class="vg-faixa {cor}"><div><div class="rotulo"><span class="bola"></span>'
             f'{esc(rotulo)}</div><div class="sub">{esc(sub)}</div></div>{direita}</div>')
+
+
+def resumo_calibracao(cal: dict) -> str:
+    if not cal.get("valida"):
+        return "Rosto não visto na calibração: usando valores padrão (clique em Recalibrar)."
+    if cal.get("fechado_medido"):
+        olhos = (f"Olho aberto {br(cal['ear_base'], 2)} · fechado {br(cal['ear_fechado'], 2)} · "
+                 f"limiar {br(cal['limiar_olho'], 2)}.")
+    else:
+        olhos = (f"Olho fechado não medido: limiar padrão ({pct(cal['fator_olho'])} do olho aberto). "
+                 "Se der falso alarme, clique em Recalibrar.")
+    volante = (" Volante marcado." if cal.get("volante")
+               else " Volante não marcado: sem o alerta de mãos fora do volante.")
+    return olhos + volante
+
+
+# Os passos da calibração guiada (visao.Calibrador): título e texto de quando não é a vez dele
+PASSOS_CALIBRACAO = {
+    "alinhar": ("Posição", "Encaixe-se no contorno piscante: rosto no oval e as duas mãos no volante."),
+    "olhar": ("Olhos abertos", "Olhe para a tela como se fosse a estrada, com as mãos no volante."),
+    "fechar": ("Olhos fechados", "Feche os olhos até ouvir o bipe."),
+}
+
+
+def html_calibracao(e: dict) -> str:
+    """Cartão com os passos da calibração guiada (aparece no lugar do cartão da MLP)."""
+    fases = e.get("fases_calibracao") or list(PASSOS_CALIBRACAO)
+    passo, _ = e.get("passo_calibracao") or (1, len(fases))
+    progresso = e["progresso_calibracao"] or 0.0
+    itens = []
+    for i, fase in enumerate(fases, start=1):
+        titulo, texto = PASSOS_CALIBRACAO[fase]
+        if i < passo:
+            estado, valor = "feito", 1.0
+        elif i == passo:
+            estado, valor, texto = "agora", progresso, e["mensagem"]
+        else:
+            estado, valor = "", 0.0
+        itens.append(
+            f'<div class="vg-passo {estado}"><div class="num">{"✓" if estado == "feito" else i}</div>'
+            f'<div><b>{esc(titulo)}</b><span>{esc(texto)}</span>'
+            f'<div class="trilho"><b style="width:{valor * 100:.0f}%"></b></div></div></div>')
+    return (f'<div class="vg-cartao"><h4>Calibração · antes de vigiar</h4>{"".join(itens)}'
+            f'<div class="vg-muted" style="font-size:.8rem;margin-top:6px">A voz guia cada passo. '
+            f'O Vigia marca onde fica o volante e mede como ficam os SEUS olhos abertos e fechados '
+            f'nesta posição de câmera.</div></div>')
 
 
 def html_sem_video(e: dict) -> str:
@@ -310,6 +372,14 @@ def alvo_cabeca(yaw, pitch) -> str:
                    "posição da cabeça")
 
 
+def rodape_calibracao(cal: dict | None) -> str:
+    if not cal:
+        return "sem calibração"
+    fechado = f" · fechado {br(cal['ear_fechado'], 3)}" if cal.get("fechado_medido") else ""
+    padrao = "" if cal.get("fechado_medido") else " (padrão)"
+    return f"aberto {br(cal['ear_base'], 3)}{fechado} · limiar {br(cal['limiar_olho'], 3)}{padrao}"
+
+
 def html_indicadores(e: dict) -> str:
     ind, atr, cal = e["ind"] or {}, e["atributos"] or {}, e["calibracao"]
     rosto = bool(ind.get("rosto_presente"))
@@ -326,7 +396,7 @@ def html_indicadores(e: dict) -> str:
 
     olhos = (f'<div class="vg-medida"><div class="linha"><span>Abertura dos olhos (EAR)</span>'
              f'<span class="valor">{br(ear, 3) if rosto else "—"}</span></div>'
-             f'{barra(ear_rel if rosto else None, 1.3, "#E5484D" if fechado else "#1FA971", visao.CONFIG_VISAO["fator_olho_fechado"])}'
+             f'{barra(ear_rel if rosto else None, 1.3, "#E5484D" if fechado else "#1FA971", cal["fator_olho"] if cal else visao.CONFIG_VISAO["fator_olho_fechado"])}'
              f'<div class="linha" style="margin-top:4px"><span>{"FECHADOS" if fechado else ("abertos" if rosto else "sem rosto")}'
              f'</span><span>{pct(ear_rel) + " do normal" if rosto and ear_rel is not None else ""}</span></div></div>')
     perc = (f'<div class="vg-medida"><div class="linha"><span>PERCLOS · últimos 3 s</span>'
@@ -340,16 +410,29 @@ def html_indicadores(e: dict) -> str:
               f'<div><span style="color:#8C94A6">cima/baixo </span>{br(pitch, 0) + "°" if pitch is not None else "—"}</div>'
               f'<div><span style="color:#8C94A6">boca </span>{br(ind.get("mar"), 2) if rosto else "—"}</div></div></div></div>')
     conf_cel = ind.get("conf_celular") or 0
+    no_volante = ind.get("maos_no_volante") if rosto else None
+    if not (cal and cal.get("volante")):
+        texto_volante = "Volante não marcado (sem alerta de mãos)"
+    elif no_volante is None:
+        texto_volante = "Mãos no volante: —"
+    elif no_volante == 0:
+        texto_volante = "Mãos FORA do volante"
+    else:
+        texto_volante = f"Mãos no volante: {no_volante} de 2"
     flags = (f'<div class="vg-grade" style="margin-bottom:12px">'
              f'<div class="vg-flag {"on" if ind.get("mao_perto_rosto") else ""}"><i></i>Mão perto do rosto</div>'
              f'<div class="vg-flag {"on" if conf_cel > 0.5 else ""}"><i></i>Celular '
-             f'{pct(conf_cel) if conf_cel > 0 else "não visto"}</div></div>')
+             f'{pct(conf_cel) if conf_cel > 0 else "não visto"}</div>'
+             f'<div class="vg-flag {"on" if no_volante == 0 else ""}" style="grid-column:1 / -1"><i></i>'
+             f'{texto_volante}</div></div>')
     rodape = (f'<div class="vg-rodape"><span>{br(e["fps"], 0)} fps</span>'
-              f'<span>{"EAR base " + br(cal["ear_base"], 3) + " · limiar " + br(cal["limiar_olho"], 3) if cal else "sem calibração"}</span></div>')
+              f'<span>{rodape_calibracao(cal)}</span></div>')
     return f'<div class="vg-painel"><h4>Indicadores ao vivo</h4>{olhos}{perc}{cabeca}{flags}{rodape}</div>'
 
 
 def html_modelo(e: dict) -> str:
+    if e["status"] == "calibrando":
+        return html_calibracao(e)
     if monitor.pronto and monitor.modelo is None:
         corpo = ('<div class="vg-muted" style="font-size:.9rem">O modelo ainda não foi treinado. '
                  'No terminal, rode <span class="vg-mono">python pipeline.py</span>. '
@@ -573,7 +656,8 @@ with aba_sobre:
 ##### O que o Vigia faz
 - Observa o motorista por uma **webcam comum**, no próprio computador, **sem internet**.
 - Detecta **sono** (olhos fechando, piscadas longas, bocejos, cabeça caindo), **distração**
-  (olhar para o lado ou para baixo), **uso de celular** e **ausência** do motorista.
+  (olhar para o lado ou para baixo), **uso de celular**, **mãos fora do volante** e **ausência**
+  do motorista.
 - Avisa **em voz alta, em português**, e aumenta o alerta se o problema continuar.
 - Registra **eventos** (tipo, hora, duração) para o gestor da frota.
 
@@ -603,7 +687,8 @@ with aba_sobre:
 - Modelo treinado com **dados sintéticos** e/ou poucas pessoas; **sono simulado não é sono
   real**. As métricas da aba Modelo valem para esses dados.
 - Webcam comum **não enxerga no escuro** (sem infravermelho); óculos escuros escondem os olhos.
-- Ângulo e distância da câmera mudam as medidas (por isso a calibração de 5 s).
+- Ângulo e distância da câmera mudam as medidas (por isso a calibração guiada no início: olhos
+  abertos e olhos fechados de cada pessoa, nesta posição de câmera).
 - O YOLO pode não ver um celular parcialmente escondido pela mão.
 - Falsos alarmes e alarmes perdidos acontecem. Um alarme perdido é o erro mais grave.
 - O Ultralytics (YOLO) tem licença AGPL-3.0: uso acadêmico ok; uso comercial exige licença.
@@ -623,10 +708,14 @@ with aba_monitor:
     if not opcoes:
         opcoes = [0]
 
-    c1, c2, c3, c4, c5 = st.columns([1, 1, 1.5, 1.4, 1.3], vertical_alignment="bottom")
+    c1, c2, c6, c3, c4, c5 = st.columns([1, 1, 1.25, 1.3, 1.4, 1.2], vertical_alignment="bottom")
     iniciar = c1.button("Iniciar", type="primary", icon=":material/play_arrow:", width="stretch",
                         disabled=monitor.rodando or not consentiu)
     parar = c2.button("Parar", icon=":material/stop:", width="stretch", disabled=not monitor.rodando)
+    recalibrar = c6.button("Recalibrar", icon=":material/restart_alt:", width="stretch",
+                           disabled=not monitor.rodando,
+                           help="Refaz a calibração (olhos abertos e fechados) sem parar. "
+                                "Use se mudar de posição ou se houver falso alarme.")
     fonte = c3.selectbox("Câmera", opcoes, disabled=monitor.rodando,
                          format_func=lambda f: f"Webcam {f}" if isinstance(f, int) else "Vídeo de teste",
                          help="Se não aparecer nenhuma webcam, confira o cabo e se outro programa "
@@ -651,6 +740,8 @@ with aba_monitor:
     if parar:
         monitor.parar()
         st.rerun()
+    if recalibrar:
+        monitor.recalibrar()
 
     col_video, col_lado = st.columns([1.55, 1], gap="medium")
     with col_video:

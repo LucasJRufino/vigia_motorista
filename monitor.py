@@ -53,9 +53,15 @@ LIMIARES = {
     "celular_checagens": (2, 3),  # ...em 2 das últimas 3 checagens (1,5 s)
     "celular_conf_mao": 0.3,      # ou: mão perto do rosto + celular acima de 30%
     "ausencia_s": 3.0,            # sem rosto por 3 s
+    "maos_fora_s": 0.25,          # nenhuma mão no volante (marcado na calibração): na hora
+                                  # (0,25 s = ignora só um quadro em que a câmera perde as mãos)
     "sonolencia_conf": 0.6,       # modelo diz "sonolento" com 60% de confiança...
     "sonolencia_s": 2.0,          # ...em previsões seguidas por 2 s (3 previsões)
     "tolerancia_fim_s": 0.6,      # o evento só acaba após 0,6 s normal (evita "piscar")
+    # depois do bipe da calibração a pessoa ainda está de olhos fechados: só começa a vigiar
+    # quando os olhos ficam abertos por 0,5 s (ou 3 s depois do bipe, o que vier primeiro)
+    "abrir_olhos_s": 0.5,
+    "carencia_max_s": 3.0,
 }
 
 TIPOS_EVENTO = {
@@ -63,10 +69,11 @@ TIPOS_EVENTO = {
     "celular": {"nome": "Uso de celular", "prioridade": "Alta"},
     "distracao": {"nome": "Distração", "prioridade": "Alta"},
     "sonolencia": {"nome": "Sonolência (modelo)", "prioridade": "Alta"},
+    "maos_fora": {"nome": "Mãos fora do volante", "prioridade": "Alta"},
     "ausencia": {"nome": "Ausência", "prioridade": "Média"},
     "bocejo": {"nome": "Bocejo", "prioridade": "Info"},
 }
-ALERTA_SONORO = {"microssono", "celular", "distracao", "sonolencia", "ausencia"}
+ALERTA_SONORO = {"microssono", "celular", "maos_fora", "distracao", "sonolencia", "ausencia"}
 
 
 # ---------------------------------------------------------------------------
@@ -128,6 +135,8 @@ class Regras:
             "distracao": DetectorPersistente(L["distracao_s"]),
             "celular": DetectorPersistente(0.0, tolerancia_s=1.0),
             "ausencia": DetectorPersistente(L["ausencia_s"], tolerancia_s=0.5),
+            # acaba 0,5 s depois que uma mão volta ao volante (a próxima soltada avisa de novo)
+            "maos_fora": DetectorPersistente(L["maos_fora_s"], tolerancia_s=0.5),
             "sonolencia": DetectorPersistente(L["sonolencia_s"], tolerancia_s=1.5,
                                               tolerancia_inicio_s=1.5),
         }
@@ -159,6 +168,8 @@ class Regras:
                                  or np.nan_to_num(ind["jaw_open"]) > L["bocejo_jaw"]),
             "distracao": fora and not self.detectores["microssono"].ativo,
             "celular": celular,
+            # só vale com o volante marcado na calibração (None = não marcado)
+            "maos_fora": rosto and ind.get("maos_no_volante") == 0,
             "ausencia": not rosto,
         }
 
@@ -244,6 +255,7 @@ class Monitor:
         self._t0 = time.monotonic()
         self._trava = threading.Lock()
         self._parar = threading.Event()
+        self._recalibrar = threading.Event()
         self._thread = None
         self._preparo = None
         self._estado = self._estado_vazio("parado", "Monitor parado.")
@@ -251,7 +263,9 @@ class Monitor:
     # --- carregar os modelos (uma vez só; reaproveitados entre sessões) -----
     def _estado_vazio(self, status: str, mensagem: str) -> dict:
         return {"status": status, "mensagem": mensagem, "quadro": None, "fps": 0.0,
-                "calibracao": None, "progresso_calibracao": 0.0, "ind": None,
+                "calibracao": None, "progresso_calibracao": 0.0, "passo_calibracao": (1, 3),
+                "fases_calibracao": ["alinhar", "olhar", "fechar"],
+                "calibrado_ha_s": None, "ind": None,
                 "atributos": None, "previsao": None, "ativos": [], "nivel": 0,
                 "eventos_sessao": [], "contagem": {}, "inicio_sessao": None,
                 "modelo_carregado": self.modelo is not None if hasattr(self, "modelo") else False}
@@ -310,6 +324,11 @@ class Monitor:
                                         name="monitor")
         self._thread.start()
 
+    def recalibrar(self) -> None:
+        """Refaz a calibração guiada sem parar o monitor (ex.: mudou de posição)."""
+        if self.rodando:
+            self._recalibrar.set()
+
     def parar(self) -> None:
         self._parar.set()
         if self._thread is not None:
@@ -346,17 +365,34 @@ class Monitor:
                     raise RuntimeError(self.instantaneo()["mensagem"])
             self._publicar(**self._estado_vazio("abrindo", "Abrindo a câmera..."))
             cap = abrir_fonte(fonte)
-            calib = visao.Calibrador()
             self.alertas.som = self.som
-            self.alertas.falar("calibrando")
             buffer: deque[dict] = deque()
-            ultima_previsao_t = None
-            previsao, atributos = None, None
             fps, ultimo_t, falhas = 0.0, None, 0
-            self._publicar(status="calibrando", mensagem="Calibrando... olhe para a frente.",
+            calib = None
+            self._recalibrar.set()      # a sessão sempre começa pela calibração guiada
+            self._publicar(status="calibrando", mensagem="Calibrando...",
                            inicio_sessao=datetime.now())
 
             while not self._parar.is_set():
+                if self._recalibrar.is_set():
+                    # (re)começa a calibração: fecha os eventos abertos e zera a memória
+                    self._recalibrar.clear()
+                    agora = datetime.now()
+                    for tipo, fase, duracao in regras.encerrar_todos():
+                        evento = self._registrar(tipo, duracao, contexto_inicio.pop(tipo, {}), agora)
+                        eventos_sessao.insert(0, evento)
+                        contagem[tipo] = contagem.get(tipo, 0) + 1
+                    regras = Regras()
+                    self.alertas.atualizar({}, time.monotonic() - self._t0)
+                    self.alertas.silenciar_tudo()
+                    calib = visao.Calibrador()
+                    calibrado_em = None
+                    vigiando, aberto_desde = False, None
+                    buffer.clear()
+                    ultima_previsao_t = None
+                    previsao, atributos = None, None
+                    self.alertas.falar("alinhar" if calib.fase == "alinhar" else "calibrando")
+
                 ok, quadro = cap.read()
                 if not ok or quadro is None:
                     falhas += 1
@@ -375,26 +411,55 @@ class Monitor:
 
                 # 1) indicadores do quadro + calibração
                 ind = self.extrator.processar(quadro, t)
-                if not calib.concluida and calib.adicionar(ind):
-                    self.alertas.falar("iniciado")
+                if not calib.concluida:
+                    calib.adicionar(ind)
+                    for evento_calib in calib.eventos:      # a voz guia cada passo
+                        if evento_calib == "alinhado":
+                            self.alertas.falar("calibrando")
+                        elif evento_calib == "sem_alinhar":
+                            self.alertas.falar("sem_alinhar")
+                        elif evento_calib in ("fechar", "repetir"):
+                            frase = "calib_" + evento_calib
+                            self.alertas.falar(frase)
+                            # só mede depois que a frase terminou + tempo de reação
+                            calib.espera_fechar_s = (self.alertas.duracao(frase)
+                                                     + visao.CONFIG_VISAO["calib_reacao_s"])
+                        elif evento_calib == "pronto":
+                            self.alertas.falar("iniciado", bipe=self.alertas.bipe)
+                            calibrado_em = t
+                    calib.eventos.clear()
                 cal = calib.resultado
                 base = cal or {"ear_base": visao.CONFIG_VISAO["ear_base_padrao"],
-                               "yaw_base": 0.0, "pitch_base": 0.0}
+                               "yaw_base": 0.0, "pitch_base": 0.0,
+                               "fator_olho": visao.CONFIG_VISAO["fator_olho_fechado"]}
                 blink = np.nanmean([ind["blink_esq"], ind["blink_dir"]]) if ind["rosto_presente"] else 0
                 ind["ear_rel"] = ind["ear_medio"] / base["ear_base"]
                 ind["yaw_rel"] = ind["yaw"] - base["yaw_base"]
                 ind["pitch_rel"] = ind["pitch"] - base["pitch_base"]
-                ind["olho_fechado"] = bool(ind["rosto_presente"]
-                                           and visao.olho_fechado(ind["ear_rel"], blink))
+                ind["olho_fechado"] = bool(ind["rosto_presente"] and visao.olho_fechado(
+                    ind["ear_rel"], blink, base["fator_olho"]))
+                ind["maos_no_volante"] = visao.maos_no_volante(ind["_maos"], base.get("volante"))
+
+                # carência: espera a pessoa abrir os olhos depois do bipe da calibração
+                if cal and not vigiando:
+                    if ind["rosto_presente"] and not ind["olho_fechado"]:
+                        aberto_desde = t if aberto_desde is None else aberto_desde
+                    else:
+                        aberto_desde = None
+                    vigiando = ((aberto_desde is not None
+                                 and t - aberto_desde >= LIMIARES["abrir_olhos_s"])
+                                or t - calibrado_em >= LIMIARES["carencia_max_s"])
 
                 # 2) guarda só números dos últimos 30 s (janela de 3 s + contexto do modelo)
-                buffer.append({**visao.linha_para_salvar(ind), "ear_base": base["ear_base"],
-                               "yaw_base": base["yaw_base"], "pitch_base": base["pitch_base"]})
+                if vigiando:
+                    buffer.append({**visao.linha_para_salvar(ind), "ear_base": base["ear_base"],
+                                   "yaw_base": base["yaw_base"], "pitch_base": base["pitch_base"],
+                                   "fator_olho": base["fator_olho"]})
                 while buffer and t - buffer[0]["timestamp_s"] > pipeline.CONTEXTO_S:
                     buffer.popleft()
 
                 mudancas = []
-                if cal:
+                if vigiando:
                     # 3) regras instantâneas
                     mudancas += regras.atualizar(ind, cal, t)
                     # 4) modelo treinado, 1 vez por segundo
@@ -423,11 +488,17 @@ class Monitor:
                 # 7) publica para a interface
                 import cv2
                 tela = visao.desenhar(quadro, ind, ind["olho_fechado"])
+                if calib.fase == "alinhar":
+                    tela = visao.desenhar_contorno(tela, calib.alinhamento, t)
+                elif cal:
+                    tela = visao.desenhar_volante(tela, cal.get("volante"), ind["maos_no_volante"])
                 self._publicar(
                     status="monitorando" if cal else "calibrando",
-                    mensagem="Monitorando." if cal else "Calibrando... olhe para a frente.",
+                    mensagem="Monitorando." if cal else calib.instrucao,
                     quadro=cv2.cvtColor(tela, cv2.COLOR_BGR2RGB), fps=fps,
                     calibracao=cal, progresso_calibracao=calib.progresso,
+                    passo_calibracao=(calib.passo, calib.passos), fases_calibracao=list(calib.fases),
+                    calibrado_ha_s=None if calibrado_em is None else t - calibrado_em,
                     ind={k: v for k, v in ind.items() if not k.startswith("_")},
                     atributos=atributos, previsao=previsao,
                     ativos=[{"tipo": k, **TIPOS_EVENTO[k],
@@ -491,7 +562,8 @@ def demonstracao(camera="0", som: bool = True) -> None:
     if monitor.erro_modelo:
         print("Aviso:", monitor.erro_modelo, "(as regras funcionam mesmo assim)")
     monitor.iniciar(camera)
-    print("Calibrando: olhe para a frente por 5 s. Tecla q = sair.")
+    print("Calibração guiada: olhe para a frente; quando a voz pedir, feche os olhos até o bipe. "
+          "Tecla q = sair, r = recalibrar.")
     vistos = 0
     try:
         while True:
@@ -504,8 +576,9 @@ def demonstracao(camera="0", som: bool = True) -> None:
                 ativos = ", ".join(a["nome"] for a in e["ativos"]) or "normal"
                 p = e["previsao"]
                 modelo = f"{pipeline.NOMES_CLASSES[p['estado']]} {p['confianca']:.0%}" if p else "-"
-                linha = (f"Calibrando {e['progresso_calibracao']:.0%}" if e["status"] == "calibrando"
-                         else f"{ativos} | modelo: {modelo}")
+                passo, passos = e["passo_calibracao"]
+                linha = (f"Calibracao {passo}/{passos} {e['progresso_calibracao']:.0%}"
+                         if e["status"] == "calibrando" else f"{ativos} | modelo: {modelo}")
                 cor = (60, 70, 235) if e["ativos"] else (120, 200, 60)
                 cv2.rectangle(tela, (0, 0), (visao.LARGURA, 30), (20, 20, 20), -1)
                 cv2.putText(tela, f"{linha}  |  {e['fps']:.0f} fps", (10, 21),
@@ -514,8 +587,11 @@ def demonstracao(camera="0", som: bool = True) -> None:
             for ev in e["eventos_sessao"][: len(e["eventos_sessao"]) - vistos][::-1]:
                 print(f"  evento: {TIPOS_EVENTO[ev['tipo']]['nome']} ({ev['duracao_s']} s)")
             vistos = len(e["eventos_sessao"])
-            if cv2.waitKey(30) & 0xFF == ord("q"):
+            tecla = cv2.waitKey(30) & 0xFF
+            if tecla == ord("q"):
                 break
+            if tecla == ord("r"):
+                monitor.recalibrar()
     finally:
         monitor.fechar()
         cv2.destroyAllWindows()
