@@ -8,7 +8,8 @@ As métricas são lidas de data/ouro/metricas.json (nunca digitadas à mão).
 O que só a equipe sabe fica marcado em amarelo como [PREENCHER: ...].
 
 Uso (precisa do pacote python-docx, que não faz parte do requirements.txt do MVP):
-    python documento/gerar_documento.py caminho\\do\\modelo.docx [captura_modelo.png]
+    python documento/gerar_documento.py caminho\\do\\modelo.docx [captura_modelo.png] [figura1.png]
+  captura_modelo.png = Figura 2 (aba Modelo) | figura1.png = Figura 1 (monitor ao vivo)
 """
 
 import copy
@@ -24,6 +25,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 MODELO = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.home() / "Desktop" / \
     "Projeto_IA_02_Template_Documento_Tecnico.docx"
 CAPTURA = Path(sys.argv[2]) if len(sys.argv) > 2 else None
+FIGURA1 = Path(sys.argv[3]) if len(sys.argv) > 3 else None
 SAIDA = RAIZ / "documento" / "Vigia_Documento_Tecnico.docx"
 
 m = json.loads((RAIZ / "data" / "ouro" / "metricas.json").read_text(encoding="utf-8"))
@@ -105,9 +107,8 @@ for i in (1, 2, 3, 4):
 
 # --- 1. Identificação -------------------------------------------------------------
 tabela(d.tables[0], [
-    ("Projeto", [("Vigia — Monitor de Fadiga e Distração do Motorista ", ""),
-                 ("[PREENCHER: confirmar o nome final]", "p")]),
-    ("Equipe", [("[PREENCHER: nome completo de cada integrante]", "p")]),
+    ("Projeto", "Vigia"),
+    ("Equipe", "Lucas José Gasparin Corrêa Rufino, Arthur Molinari Fortunato e Adrian Bezerra Costa"),
     ("Setor / nicho", "Transporte e logística: segurança de frotas (caminhões, ônibus, vans e "
                       "motoristas de aplicativo)"),
     ("Técnica de IA", "MLP Keras (modelo principal) + Árvore de Decisão (baseline), treinadas pela "
@@ -118,10 +119,12 @@ tabela(d.tables[0], [
 # --- 2. O que o MVP faz -----------------------------------------------------------
 remover(P(8))
 escrever(P(9), [(
-    "O sistema recebe o vídeo da webcam voltada ao motorista, extrai indicadores do rosto e das "
-    "mãos com MediaPipe e YOLO, e usa uma MLP Keras (com Árvore de Decisão como baseline) para "
-    "classificar o estado como alerta, sonolento ou distraído, devolvendo alertas falados em "
-    "português e um registro de eventos para o gestor de frota. Nenhuma imagem é gravada.", "")])
+    "O sistema recebe o vídeo da webcam voltada ao motorista e, depois de uma calibração guiada "
+    "por voz (posição no volante, olhos abertos e olhos fechados), extrai indicadores do rosto e "
+    "das mãos com MediaPipe e YOLO e usa uma MLP Keras (com Árvore de Decisão como baseline) para "
+    "classificar o estado como alerta, sonolento ou distraído. Devolve alertas falados em "
+    "português (sono, distração, celular, mãos fora do volante, ausência) e um registro de "
+    "eventos para o gestor de frota. Nenhuma imagem é gravada.", "")])
 
 # --- 3. Requisitos ----------------------------------------------------------------
 tabela(d.tables[1], [
@@ -178,8 +181,9 @@ tabela(d.tables[2], [
                 "estado segue a literatura (sono: piscadas longas, microssonos, bocejos, cabeça "
                 "caindo; distração: olhar fora da estrada por 1,5–7 s). Ruído e valores impossíveis "
                 "são inseridos de propósito. Sessões reais da equipe entram com ", ""),
-               ("coletar_dados.py", "c"), (" (só números, com consentimento). ", ""),
-               ("[PREENCHER: se gravaram sessões reais, quantas pessoas e minutos]", "p")]),
+               ("coletar_dados.py", "c"), (" (só números, com consentimento). Nesta entrega não "
+                                          "foram gravadas sessões reais: todas as métricas são da "
+                                          "base sintética.", "")]),
     ("Onde colocar", [("data/bronze/sessoes/", "c"), (" (sint_*.csv e real_*.csv). Se a pasta estiver "
                                                       "vazia, o pipeline gera a base sintética sozinho.", "")]),
     ("Variável-alvo ou pergunta", "estado do motorista em cada janela de 3 s (passo de 1 s): alerta, "
@@ -192,10 +196,12 @@ tabela(d.tables[2], [
                              "janela vazaria informação: janelas vizinhas da mesma pessoa são quase iguais"),
 ])
 escrever(P(23), [("Por que regras + modelo: ", "b"), (
-    "as regras reagem em menos de 2 s a situações claras (olhos fechados por 1,5 s, celular, olhar "
-    "fora da estrada por 2 s, sem rosto por 3 s) e não dependem do modelo. A MLP, a cada 1 s, pega "
-    "padrões sutis que um limiar fixo não pega: piscadas ficando lentas, PERCLOS subindo, cabeça "
-    "oscilando.", "")])
+    "as regras reagem em menos de 2 s a situações claras (olhos fechados por 1,5 s, celular, mãos "
+    "fora do volante, olhar fora da estrada por 2 s, sem rosto por 3 s) e não dependem do modelo. "
+    "A MLP, a cada 1 s, pega padrões sutis que um limiar fixo não pega: piscadas ficando lentas, "
+    "PERCLOS subindo, cabeça oscilando. ", ""), ("Calibração: ", "b"), (
+    "antes de vigiar, o Vigia mede o olho aberto e o fechado da própria pessoa na posição real da "
+    "câmera (o limiar de “olho fechado” fica entre os dois) e marca o volante pela posição das mãos.", "")])
 
 # --- 7. Como executar ---------------------------------------------------------------
 escrever(P(25), [("Rode o pipeline: ", ""), ("python pipeline.py", "c"),
@@ -238,14 +244,26 @@ tabela(d.tables[3], [
     ("8", "Abrir a aba Modelo", "Métricas da Árvore e da MLP, matrizes de confusão e a árvore desenhada"),
 ])
 par_fig = P(30)
-escrever(par_fig, [("[PREENCHER: Figura 1 — captura da aba Monitor ao vivo com um integrante da equipe "
-                    "(ex.: no momento do alerta de microssono)]", "p")])
+if FIGURA1 and FIGURA1.exists():
+    for r in list(par_fig.runs):
+        r._r.getparent().remove(r._r)
+    par_fig.add_run().add_picture(str(FIGURA1), width=Cm(12.5))
+    legenda1 = inserir_depois(par_fig, "Body Text")
+    escrever(legenda1, [("Figura 1 — Monitor ao vivo com um integrante da equipe, no alerta de "
+                         "MICROSSONO: olhos fechados (contorno vermelho), as duas mãos no volante "
+                         "marcado na calibração e a MLP em “Sonolento” (o vídeo só aparece na "
+                         "tela; nada é gravado).", "i")])
+    legenda1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+else:
+    escrever(par_fig, [("[PREENCHER: Figura 1 — captura da aba Monitor ao vivo com um integrante da "
+                        "equipe (ex.: no momento do alerta de microssono)]", "p")])
 par_fig.alignment = WD_ALIGN_PARAGRAPH.CENTER
 if CAPTURA and CAPTURA.exists():
-    img = inserir_depois(par_fig, "Body Text")
+    # a Figura 2 vem depois da legenda da Figura 1 (quando ela existe)
+    img = inserir_depois(legenda1 if FIGURA1 and FIGURA1.exists() else par_fig, "Body Text")
     for r in list(img.runs):
         r._r.getparent().remove(r._r)
-    img.add_run().add_picture(str(CAPTURA), width=Cm(16.5))
+    img.add_run().add_picture(str(CAPTURA), width=Cm(15))
     img.alignment = WD_ALIGN_PARAGRAPH.CENTER
     legenda = inserir_depois(img, "Body Text")
     escrever(legenda, [("Figura 2 — Aba Modelo: Árvore (baseline) × MLP no teste com pessoas que o "
@@ -256,7 +274,9 @@ if CAPTURA and CAPTURA.exists():
 escrever(P(32), [("Limitações técnicas: ", "b"), (
     "treinado com dados sintéticos (e/ou poucas pessoas): sono simulado não é sono real e as "
     "métricas valem para esses dados; o teste usa só 3 pessoas; webcam comum não enxerga no escuro "
-    "(sem infravermelho); óculos escuros, câmera muito de lado e contraluz atrapalham; o YOLO perde "
+    "(sem infravermelho); óculos escuros e contraluz atrapalham; com a câmera muito de lado, o olho "
+    "do fundo fica atrás do nariz e só o olho mais visível é medido; o alerta de mãos fora do "
+    "volante só existe se a câmera enxergar as mãos e vale para a posição calibrada; o YOLO perde "
     "o celular escondido pela mão; o contexto de 30 s faz o modelo “lembrar” de um microssono por "
     "até 30 s.", "")])
 escrever(P(33), [("Riscos éticos e legais: ", "b"), (
