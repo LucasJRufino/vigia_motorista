@@ -14,3 +14,6 @@ data/ouro/eventos.db
 # Sessões reais da equipe são dados pessoais: ficam fora do git
 # (apague esta linha só se todos que gravaram concordarem)
 data/bronze/sessoes/real_*.csv
+
+# dependências do gerador de slides (npm install em apresentacao/)
+node_modules/
