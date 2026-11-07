@@ -1,6 +1,7 @@
 /*
  * gerar_slides.js — os 7 slides do Vigia, no roteiro do professor:
  *   1 Capa · 2 Contexto · 3 Problema · 4 Literatura · 5 Objetivo · 6 Arquitetura de IA · 7 Demonstração
+ *   + 8 Agradecimentos e perguntas (pedido da equipe; SEM_AGRADECIMENTO=1 gera só os 7 do roteiro)
  *
  * Uso (dentro de apresentacao/):  npm install  &&  node gerar_slides.js
  * Saída: Vigia_Apresentacao.pptx (o PDF sai do LibreOffice a partir dele).
@@ -13,13 +14,16 @@ const React = require("react");
 const ReactDOMServer = require("react-dom/server");
 const sharp = require("sharp");
 const fa = require("react-icons/fa6");
+const QRCode = require("qrcode");
+const REPO = "https://github.com/LucasJRufino/vigia_motorista";
+const COM_AGRADECIMENTO = !process.env.SEM_AGRADECIMENTO;
 
 const APLICAR_TEMA = process.env.APPLY_THEME ||
   "C:/Users/Administrador/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/" +
   "59ae5568-d14b-455c-8f9b-79f1dab77a79/4b9aad69-4220-4354-90b8-78b580dd93f5/skills/pptx/scripts/apply_theme.js";
 
 const RAIZ = path.resolve(__dirname, "..");
-const SAIDA = path.join(__dirname, "Vigia_Apresentacao.pptx");
+const SAIDA = process.env.SAIDA || path.join(__dirname, "Vigia_Apresentacao.pptx");
 const IMG_ACERTO = path.join(RAIZ, "documento", "figura_monitor_ao_vivo.jpg");   // 1016 x 733
 const IMG_ERRO = path.join(__dirname, "erro_camera_de_lado.jpg");                // 1257 x 662
 
@@ -427,6 +431,46 @@ async function icone(Comp, corHex, tam = 256) {
     `${pct(recMlp)} no teste com 3 pessoas novas (abaixo da meta de 80%) e ${pct(cv.mlp.recall_sonolento.media)} ` +
     `na validação cruzada (acima); F1-macro ${br(mlp.f1_macro)} contra ${br(arv.f1_macro)} da Árvore; cerca de ` +
     `27 quadros por segundo sem placa de vídeo. Dados sintéticos: sono simulado não é sono real.`);
+
+  // =====================================================================================
+  // 8. AGRADECIMENTOS E PERGUNTAS
+  // =====================================================================================
+  if (COM_AGRADECIMENTO) {
+    pres.addSection({ title: "Agradecimentos" });
+    s = pres.addSlide({ masterName: "CAPA", sectionTitle: "Agradecimentos" });
+    pilula(s, "08 · ENCERRAMENTO", 0.55);
+    s.addText("Obrigado!", { x: MX, y: 1.3, w: 7.2, h: 1.15, fontSize: 66, bold: true, color: C.background1,
+      margin: 0, isTextBox: true, objectName: "Título" });
+    s.addText("Perguntas?", { x: MX, y: 2.45, w: 7.2, h: 0.85, fontSize: 44, bold: true, color: C.accent1,
+      margin: 0, isTextBox: true, objectName: "Perguntas" });
+    s.addText("Vigia: a IA que percebe pela webcam quando o motorista cochila, se distrai, pega o celular ou " +
+      "solta o volante — e avisa em voz alta.", { x: MX, y: 3.55, w: 6.6, h: 0.9, fontSize: 18, color: "D5D9E0",
+      margin: 0, valign: "top", isTextBox: true });
+    s.addText("EQUIPE", { x: MX, y: 4.75, w: 3, h: 0.3, fontSize: 11, bold: true, color: C.accent1, charSpacing: 1,
+      margin: 0, isTextBox: true });
+    s.addText("Lucas José Gasparin Corrêa Rufino\nArthur Molinari Fortunato\nAdrian Bezerra Costa",
+      { x: MX, y: 5.1, w: 6.6, h: 1.0, fontSize: 15, color: C.background1, margin: 0, valign: "top",
+        paraSpaceAfter: 0, isTextBox: true });
+    s.addText(RODAPE, { x: MX, y: 7.0, w: 10, h: 0.3, fontSize: 10, color: C.accent6, margin: 0, isTextBox: true });
+    // repositório com QR code (código, documento técnico e estes slides)
+    const qr = await QRCode.toBuffer(REPO, { margin: 1, width: 600, color: { dark: "#151821", light: "#FFFFFF" } });
+    cartao(s, 8.45, 1.3, 4.28, 5.1, true, "Cartão do repositório");
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 8.99, y: 1.65, w: 3.2, h: 3.2, rectRadius: 0.12,
+      fill: { color: C.background1 }, line: { color: C.background1 }, objectName: "Fundo do QR" });
+    s.addImage({ data: "image/png;base64," + qr.toString("base64"), x: 9.14, y: 1.8, w: 2.9, h: 2.9,
+      altText: "QR code do repositório no GitHub" });
+    s.addText("Código, documento e slides", { x: 8.65, y: 5.05, w: 3.88, h: 0.4, fontSize: 16, bold: true,
+      color: C.background1, align: "center", margin: 0, isTextBox: true });
+    s.addText([{ text: "github.com/LucasJRufino/vigia_motorista",
+      options: { hyperlink: { url: REPO }, color: C.accent1 } }],
+    { x: 8.65, y: 5.5, w: 3.88, h: 0.4, fontSize: 13, align: "center", margin: 0, isTextBox: true });
+    s.addNotes("Agradecer e abrir para perguntas. O QR code leva ao repositório (código, documento técnico e " +
+      "slides). Perguntas prováveis: (1) Por que dados sintéticos? Não havia base pública com este recorte e " +
+      "gravar pessoas exige consentimento; o pipeline já aceita sessões reais pelo coletar_dados.py. (2) Por que " +
+      "MLP e não uma CNN? Para rodar em tempo real num computador comum, com atributos que dá para explicar — a " +
+      "mesma linha do artigo de referência. (3) E à noite? Webcam comum não tem infravermelho: é uma limitação. " +
+      "(4) Privacidade? Nenhuma imagem é gravada, só números e eventos, e ninguém é punido automaticamente.");
+  }
 
   await pres.writeFile({ fileName: SAIDA });
   const { applyTheme } = require(APLICAR_TEMA);
